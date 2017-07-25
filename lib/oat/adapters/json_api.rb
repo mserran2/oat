@@ -17,6 +17,9 @@ module Oat
         @entities = {}
         @link_templates = {}
         @meta = {}
+        data['id'] = ''
+        data['type'] = ''
+        data['attributes'] = {}
       end
 
       def rel(rels)
@@ -25,6 +28,7 @@ module Oat
 
       def type(*types)
         @root_name = types.first.to_s.pluralize.to_sym
+        data['type'] = @root_name
       end
 
       def link(rel, opts = {})
@@ -58,11 +62,19 @@ module Oat
       private :link_template
 
       def properties(&block)
-        data.merge! yield_props(&block)
+        data['attributes'].merge! yield_props(&block)
+        if data['attributes'].has_key?('id')
+          data['id'] =  data['attributes']['id']
+          data['attributes'].delete('id')
+        end
       end
 
       def property(key, value)
-        data[key] = value
+        if key.to_s == 'id'
+          data[key] = value
+        else
+          data['attributes'][key] = value
+        end
       end
 
       def meta(key, value)
@@ -127,12 +139,13 @@ module Oat
         else
           h = {}
           if @treat_as_resource_collection
-            h[root_name] = data[:resource_collection]
+            h['data'] = data[:resource_collection]
           else
-            h[root_name] = [data]
+            h['data'] = data
           end
           h[:linked] = @entities if @entities.keys.any?
-          h[:links] = @link_templates if @link_templates.keys.any?
+          links = serializer.instance_variable_get(:@links) || @link_templates
+          h[:links] = links if !!links
           h[:meta] = @meta if @meta.keys.any?
           return h
         end
